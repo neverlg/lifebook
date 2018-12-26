@@ -14,7 +14,10 @@ from cryptography.hazmat.backends.openssl.decode_asn1 import (
     _CRL_ENTRY_REASON_ENUM_TO_CODE, _DISTPOINT_TYPE_FULLNAME,
     _DISTPOINT_TYPE_RELATIVENAME
 )
-from cryptography.x509.oid import CRLEntryExtensionOID, ExtensionOID
+from cryptography.x509.name import _ASN1Type
+from cryptography.x509.oid import (
+    CRLEntryExtensionOID, ExtensionOID, OCSPExtensionOID,
+)
 
 
 def _encode_asn1_int(backend, x):
@@ -43,12 +46,12 @@ def _encode_asn1_int_gc(backend, x):
     return i
 
 
-def _encode_asn1_str(backend, data, length):
+def _encode_asn1_str(backend, data):
     """
     Create an ASN1_OCTET_STRING from a Python byte string.
     """
     s = backend._lib.ASN1_OCTET_STRING_new()
-    res = backend._lib.ASN1_OCTET_STRING_set(s, data, length)
+    res = backend._lib.ASN1_OCTET_STRING_set(s, data, len(data))
     backend.openssl_assert(res == 1)
     return s
 
@@ -67,8 +70,8 @@ def _encode_asn1_utf8_str(backend, string):
     return s
 
 
-def _encode_asn1_str_gc(backend, data, length):
-    s = _encode_asn1_str(backend, data, length)
+def _encode_asn1_str_gc(backend, data):
+    s = _encode_asn1_str(backend, data)
     s = backend._ffi.gc(s, backend._lib.ASN1_OCTET_STRING_free)
     return s
 
@@ -105,7 +108,7 @@ def _encode_name_gc(backend, attributes):
 
 def _encode_sk_name_entry(backend, attributes):
     """
-    The sk_X50_NAME_ENTRY created will not be gc'd.
+    The sk_X509_NAME_ENTRY created will not be gc'd.
     """
     stack = backend._lib.sk_X509_NAME_ENTRY_new_null()
     for attribute in attributes:
@@ -116,11 +119,15 @@ def _encode_sk_name_entry(backend, attributes):
 
 
 def _encode_name_entry(backend, attribute):
-    value = attribute.value.encode('utf8')
+    if attribute._type is _ASN1Type.BMPString:
+        value = attribute.value.encode('utf_16_be')
+    else:
+        value = attribute.value.encode('utf8')
+
     obj = _txt2obj_gc(backend, attribute.oid.dotted_string)
 
     name_entry = backend._lib.X509_NAME_ENTRY_create_by_OBJ(
-        backend._ffi.NULL, obj, attribute._type.value, value, -1
+        backend._ffi.NULL, obj, attribute._type.value, value, len(value)
     )
     return name_entry
 
@@ -179,7 +186,6 @@ def _encode_certificate_policies(backend, certificate_policies):
                     pqi.d.cpsuri = _encode_asn1_str(
                         backend,
                         qualifier.encode("ascii"),
-                        len(qualifier.encode("ascii"))
                     )
                 else:
                     assert isinstance(qualifier, x509.UserNotice)
@@ -240,11 +246,8 @@ def _txt2obj_gc(backend, name):
 
 
 def _encode_ocsp_nocheck(backend, ext):
-    """
-    The OCSP No Check extension is defined as a null ASN.1 value embedded in
-    an ASN.1 string.
-    """
-    return _encode_asn1_str_gc(backend, b"\x05\x00", 2)
+    # Doesn't need to be GC'd
+    return backend._lib.ASN1_NULL_new()
 
 
 def _encode_key_usage(backend, key_usage):
@@ -287,7 +290,6 @@ def _encode_authority_key_identifier(backend, authority_keyid):
         akid.keyid = _encode_asn1_str(
             backend,
             authority_keyid.key_identifier,
-            len(authority_keyid.key_identifier)
         )
 
     if authority_keyid.authority_cert_issuer is not None:
@@ -357,7 +359,7 @@ def _encode_alt_name(backend, san):
 
 
 def _encode_subject_key_identifier(backend, ski):
-    return _encode_asn1_str_gc(backend, ski.digest, len(ski.digest))
+    return _encode_asn1_str_gc(backend, ski.digest)
 
 
 def _encode_general_name(backend, name):
@@ -405,7 +407,7 @@ def _encode_general_name(backend, name):
             )
         else:
             packed = name.value.packed
-        ipaddr = _encode_asn1_str(backend, packed, len(packed))
+        ipaddr = _encode_asn1_str(backend, packed)
         gn.type = backend._lib.GEN_IPADD
         gn.d.iPAddress = ipaddr
     elif isinstance(name, x509.OtherName):
@@ -437,7 +439,7 @@ def _encode_general_name(backend, name):
         # ia5strings are supposed to be ITU T.50 but to allow round-tripping
         # of broken certs that encode utf8 we'll encode utf8 here too.
         data = name.value.encode("utf8")
-        asn1_str = _encode_asn1_str(backend, data, len(data))
+        asn1_str = _encode_asn1_str(backend, data)
         gn.type = backend._lib.GEN_EMAIL
         gn.d.rfc822Name = asn1_str
     elif isinstance(name, x509.UniformResourceIdentifier):
@@ -446,7 +448,7 @@ def _encode_general_name(backend, name):
         # ia5strings are supposed to be ITU T.50 but to allow round-tripping
         # of broken certs that encode utf8 we'll encode utf8 here too.
         data = name.value.encode("utf8")
-        asn1_str = _encode_asn1_str(backend, data, len(data))
+        asn1_str = _encode_asn1_str(backend, data)
         gn.type = backend._lib.GEN_URI
         gn.d.uniformResourceIdentifier = asn1_str
     else:
@@ -569,6 +571,10 @@ def _encode_general_subtree(backend, subtrees):
         return general_subtrees
 
 
+def _encode_nonce(backend, nonce):
+    return _encode_asn1_str_gc(backend, nonce.nonce)
+
+
 _EXTENSION_ENCODE_HANDLERS = {
     ExtensionOID.BASIC_CONSTRAINTS: _encode_basic_constraints,
     ExtensionOID.SUBJECT_KEY_IDENTIFIER: _encode_subject_key_identifier,
@@ -603,4 +609,12 @@ _CRL_ENTRY_EXTENSION_ENCODE_HANDLERS = {
     CRLEntryExtensionOID.CERTIFICATE_ISSUER: _encode_alt_name,
     CRLEntryExtensionOID.CRL_REASON: _encode_crl_reason,
     CRLEntryExtensionOID.INVALIDITY_DATE: _encode_invalidity_date,
+}
+
+_OCSP_REQUEST_EXTENSION_ENCODE_HANDLERS = {
+    OCSPExtensionOID.NONCE: _encode_nonce,
+}
+
+_OCSP_BASICRESP_EXTENSION_ENCODE_HANDLERS = {
+    OCSPExtensionOID.NONCE: _encode_nonce,
 }

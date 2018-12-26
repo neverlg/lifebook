@@ -29,3 +29,17 @@ class NotLoginException(Exception):
 class NetworkException(Exception):
     pass
 
+
+# Cos上传异常
+class CosException(Exception):
+    pass
+
+
+# 获取AccessToken异常
+class AccessTokenException(Exception):
+    pass
+
+
+class InfoException(Exception):
+    pass
+

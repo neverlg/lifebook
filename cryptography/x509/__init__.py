@@ -21,8 +21,9 @@ from cryptography.x509.extensions import (
     DeltaCRLIndicator, DistributionPoint, DuplicateExtension, ExtendedKeyUsage,
     Extension, ExtensionNotFound, ExtensionType, Extensions, FreshestCRL,
     GeneralNames, InhibitAnyPolicy, InvalidityDate, IssuerAlternativeName,
-    KeyUsage, NameConstraints, NoticeReference, OCSPNoCheck, PolicyConstraints,
-    PolicyInformation, PrecertificateSignedCertificateTimestamps, ReasonFlags,
+    KeyUsage, NameConstraints, NoticeReference, OCSPNoCheck, OCSPNonce,
+    PolicyConstraints, PolicyInformation, PrecertPoison,
+    PrecertificateSignedCertificateTimestamps, ReasonFlags,
     SubjectAlternativeName, SubjectKeyIdentifier, TLSFeature, TLSFeatureType,
     UnrecognizedExtension, UserNotice
 )
@@ -74,6 +75,7 @@ OID_RSA_WITH_SHA224 = SignatureAlgorithmOID.RSA_WITH_SHA224
 OID_RSA_WITH_SHA256 = SignatureAlgorithmOID.RSA_WITH_SHA256
 OID_RSA_WITH_SHA384 = SignatureAlgorithmOID.RSA_WITH_SHA384
 OID_RSA_WITH_SHA512 = SignatureAlgorithmOID.RSA_WITH_SHA512
+OID_RSASSA_PSS = SignatureAlgorithmOID.RSASSA_PSS
 
 OID_COMMON_NAME = NameOID.COMMON_NAME
 OID_COUNTRY_NAME = NameOID.COUNTRY_NAME
@@ -181,4 +183,6 @@ __all__ = [
     "UnrecognizedExtension",
     "PolicyConstraints",
     "PrecertificateSignedCertificateTimestamps",
+    "PrecertPoison",
+    "OCSPNonce",
 ]
