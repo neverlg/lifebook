@@ -93,15 +93,23 @@ class LifeBook(BaseApi):
     # 获取纪念册信息
     def get_book_info(self):
         uid = self.get_user_session_id(self.body['session_id'])
+        if not params['page'] or params['page'] < 1:
+            page = 1
+        else:
+            page = int(params['page'])
+        num_per_page = 10
+        start = (page - 1) * num_per_page
 
         if int(self.body['unread']) == 1:
-            sql = "select f.nickname as editor_nickname,f.avatar as editor_avatar,event_date,event_description," \
-                  "event_images,is_read from book_parts b inner join fans f on b.book_owner_id=f.id " \
-                  "where book_owner_id = %d and is_read = 0 order by event_date desc" % int(uid)
+            sql = "select f.nickname as editor_nickname,f.avatar as editor_avatar,event_date,event_address," \
+                  "event_description,event_images,is_read from book_parts b inner join fans f " \
+                  "on b.book_owner_id=f.id where book_owner_id = %d and is_read = 0 order by event_date desc " \
+                  "limit %d, %d" % (int(uid), start, num_per_page)
         else:
-            sql = "select f.nickname as editor_nickname,f.avatar as editor_avatar,event_date,event_description," \
-                  "event_images,is_read from book_parts b inner join fans f on b.book_owner_id=f.id " \
-                  "where book_owner_id = %d order by event_date desc" % int(uid)
+            sql = "select f.nickname as editor_nickname,f.avatar as editor_avatar,event_date,event_address," \
+                  "event_description,event_images,is_read from book_parts b inner join fans f " \
+                  "on b.book_owner_id=f.id where book_owner_id = %d order by event_date desc " \
+                  "limit %d, %d" % (int(uid), start, num_per_page)
 
         try:
             self.cursor.execute(sql)  # 执行sql语句
@@ -165,9 +173,10 @@ class LifeBook(BaseApi):
 
         images_str = '|'.join(self.body['event_images'])
 
-        sql_insert = "INSERT INTO book_parts (book_owner_id, editor_id, event_date, " \
-                     "event_description, event_images) VALUES ('%d', '%d', '%s', '%s', '%s')" % \
-                     (int(book_owner_id), int(uid), params['event_date'], params['event_description'], images_str)
+        sql_insert = "INSERT INTO book_parts (book_owner_id, editor_id, event_date, event_address, " \
+                     "event_description, event_images) VALUES ('%d', '%d', '%s', '%s', '%s', '%s')" % \
+                     (int(book_owner_id), int(uid), params['event_date'], params['event_address'],
+                      params['event_description'], images_str)
 
         try:
             self.cursor.execute(sql_insert)
