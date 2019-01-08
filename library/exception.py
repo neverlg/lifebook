@@ -40,6 +40,10 @@ class AccessTokenException(Exception):
     pass
 
 
-class InfoException(Exception):
-    pass
+class InfoException(ExceptionBase):
 
+    def __init__(self, message):
+        ExceptionBase.__init__(self, message)
+
+    def __str__(self):
+        return 'InfoException: %s' % (self.get_info())

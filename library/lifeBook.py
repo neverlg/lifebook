@@ -60,7 +60,7 @@ class LifeBook(BaseApi):
             self.cursor.execute("select id from fans where open_id = %s", self.openid)
             u_info = self.cursor.fetchone()
         else:
-            raise InfoException()
+            raise InfoException(json.dumps(code_info))
 
         if not u_info:
             recommender_id = MyAes().decrypt(params['scene'])

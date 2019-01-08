@@ -31,13 +31,13 @@ def main_handler(event, context):
             'ret': False,
             'code': 'NotLogin',
             'message': '',
-            'data':{}
+            'data': {}
         }
-    except InfoException:
+    except InfoException as e:
         return {
             'ret': False,
-            'code': 'InfoeError',
-            'message': '',
+            'code': 'InfoError',
+            'message': str(e),
             'data': {}
         }
     except AccessTokenException:
